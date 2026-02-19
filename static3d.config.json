@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "project": "my-cake-shop",
+
+  "deploy": {
+    "pages": {
+      "outputDir": "dist/pages",
+      "customDomain": "https://my-site.example.com"
+    },
+    "cdn": {
+      "provider": "cloudflare-r2",
+      "bucket": "my-assets",
+      "baseUrl": "https://cdn.example.com"
+    },
+    "assets": {
+      "immediateDir": "src/assets/immediate",
+      "deferredDir": "src/assets/deferred",
+      "hashLength": 8,
+      "maxFileSize": "100MB",
+      "ignore": ["**/*.psd", "**/.DS_Store"]
+    },
+    "oldVersionRetention": 3,
+    "oldVersionMaxAge": "7d"
+  },
+
+  "display": {
+    "loader": {
+      "concurrency": 4,
+      "retryCount": 3,
+      "retryBaseDelay": 1000,
+      "timeout": 30000
+    }
+  },
+
+  "draft": {
+    "preview": {
+      "expiresIn": "7d"
+    }
+  }
+}
