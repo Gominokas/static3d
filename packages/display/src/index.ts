@@ -34,6 +34,14 @@ export type { RoomContextValue } from './scene/Room.js';
 export { Spot } from './scene/Spot.js';
 export { Overlay } from './scene/Overlay.js';
 
+// ── Product overlay ───────────────────────────────────────────────────────
+export { ProductCard } from './scene/ProductCard.js';
+export type { ProductCardProps } from './scene/ProductCard.js';
+export { ProductOverlay, initialFadeState, fadeStyle, FADE_DURATION_MS } from './scene/ProductOverlay.js';
+export type { ProductOverlayProps, FadeState } from './scene/ProductOverlay.js';
+export type { ProductData } from './scene/products.js';
+export { PRODUCTS, DEFAULT_PRODUCT } from './scene/products.js';
+
 // ── Camera engine ────────────────────────────────────────────────────────
 export { CameraEngine } from './scene/engine/CameraEngine.js';
 export type { CameraEngineState } from './scene/engine/CameraEngine.js';
