@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "project": "my-cake-shop",
 
+  "optimize": {
+    "enabled": true,
+    "draco": true,
+    "prune": true,
+    "dedup": true
+  },
+
   "deploy": {
     "pages": {
       "outputDir": "dist/pages",

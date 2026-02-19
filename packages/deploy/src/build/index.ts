@@ -1,4 +1,7 @@
 import { resolve } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { DeployConfig } from '@static3d/types';
 import { collectDeferredAssets } from './collect.js';
 import {
@@ -11,11 +14,14 @@ import {
 import { rewriteGltf } from './gltf.js';
 import { generateManifest } from './manifest.js';
 import { writeOutput } from './output.js';
+import { optimizeAsset } from './optimize.js';
 import type { HashedAsset } from './hash.js';
+import type { OptimizeConfig } from '../config/optimize-config.js';
 
 export async function build(
   config: DeployConfig,
-  viteOutputDir?: string
+  viteOutputDir?: string,
+  optimizeConfig?: OptimizeConfig
 ): Promise<void> {
   const hashLength = config.assets.hashLength ?? 8;
   const cdnBaseUrl = config.cdn.baseUrl.replace(/\/$/, '');
@@ -24,6 +30,51 @@ export async function build(
   console.log('[BUILD] Collecting assets...');
   const collected = await collectDeferredAssets(config);
   console.log(`[BUILD] Found ${collected.length} deferred assets`);
+
+  // Step 0: GLB / glTF ファイルを最適化（Draco 圧縮 / prune / dedup）
+  // hash より前に実行することで、圧縮済みバイナリのハッシュを使う。
+  // 最適化済みバッファを一時ファイルに書き出し、収集済みアセットのパスを差し替える。
+  const optimizeEnabled = optimizeConfig?.enabled === true;
+
+  if (optimizeEnabled) {
+    console.log('[BUILD] Optimizing GLB/glTF assets...');
+  }
+
+  // 最適化済みバッファを保持するマップ（key → Buffer）
+  // 一時ファイルパスのマップ（key → tempPath）
+  const optimizedPaths = new Map<string, string>();
+
+  if (optimizeEnabled) {
+    const glbGltfAssets = collected.filter(
+      (a) => a.key.endsWith('.glb') || a.key.endsWith('.gltf')
+    );
+
+    for (const asset of glbGltfAssets) {
+      const { buffer, logLine } = await optimizeAsset(asset.absolutePath, {
+        enabled: true,
+        draco: optimizeConfig?.draco !== false,
+        prune: optimizeConfig?.prune !== false,
+        dedup: optimizeConfig?.dedup !== false,
+        dracoOptions: optimizeConfig?.dracoOptions,
+      });
+
+      console.log(logLine);
+
+      if (buffer !== null) {
+        // 一時ファイルに書き出して収集済みアセットのパスを置き換える
+        const tmpPath = join(
+          tmpdir(),
+          `static3d-opt-${Date.now()}-${asset.key.replace(/\//g, '_')}`
+        );
+        writeFileSync(tmpPath, buffer);
+        optimizedPaths.set(asset.key, tmpPath);
+
+        // collected の absolutePath と size を更新
+        asset.absolutePath = tmpPath;
+        asset.size = buffer.length;
+      }
+    }
+  }
 
   // Step 1: 非 gltf ファイルのハッシュ計算
   console.log('[BUILD] Hashing non-gltf assets...');
@@ -79,9 +130,6 @@ export async function build(
   }
 
   // Step 3: バージョン生成
-  // Git が使える → "<short-sha>" （例: "abc1234"）
-  // Git 未初期化  → "content:<digest12>"（全アセットhashのダイジェスト）
-  // 同じソースセットからは Git 有無に関わらず決定論的な値が得られる。
   const allFullHashes = Array.from(hashedMap.values()).map((a) => a.hash);
   const gitSha = getGitShortSha();
   const version = gitSha ?? `content:${computeContentDigest(allFullHashes)}`;
@@ -112,7 +160,9 @@ export async function build(
     viteOutputDir
   );
 
-  console.log(`[BUILD] Done! ${allHashed.length} assets processed`);
+  const optimizedCount = optimizedPaths.size;
+  const optimizeNote = optimizedCount > 0 ? ` (${optimizedCount} optimized)` : '';
+  console.log(`[BUILD] Done! ${allHashed.length} assets processed${optimizeNote}`);
   console.log(`[BUILD]   ${pagesOutputDir}/  — Pages deployment ready`);
   console.log(`[BUILD]   dist/cdn/            — CDN deployment ready`);
 }
