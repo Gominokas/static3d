@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { buildCommand } from './build.js';
+import { pushCommand } from './push.js';
+import { validateCommand } from './validate.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -10,30 +12,46 @@ const subCommand = args[1];
 const effectiveCommand =
   command === 'deploy' && subCommand ? subCommand : command;
 
-const configFlagIndex = args.indexOf('--config');
-const configPath =
-  configFlagIndex !== -1 ? args[configFlagIndex + 1] : undefined;
+// フラグパーサー
+function getFlag(flag: string): string | undefined {
+  const idx = args.indexOf(flag);
+  return idx !== -1 ? args[idx + 1] : undefined;
+}
+function hasFlag(flag: string): boolean {
+  return args.includes(flag);
+}
+
+const configPath = getFlag('--config');
+const projectName = getFlag('--project');
+const skipCleanup = hasFlag('--skip-cleanup');
+const skipPages = hasFlag('--skip-pages');
 
 switch (effectiveCommand) {
   case 'build':
-    buildCommand(configPath);
+    buildCommand({ configPath });
     break;
+
   case 'push':
-    console.log('[TODO] push command — Cloudflare R2 + Pages deploy');
+    pushCommand({ configPath, projectName, skipCleanup, skipPages });
     break;
+
   case 'validate':
-    console.log('[TODO] validate command');
+    validateCommand({ configPath });
     break;
+
   default:
     console.log(`
 static3d-deploy — Static 3D asset deployment tool
 
 Usage:
-  static3d-deploy build     Build assets (hash + manifest + gltf rewrite)
-  static3d-deploy push      Deploy to Cloudflare (R2 + Pages)  [TODO]
-  static3d-deploy validate  Validate config and assets          [TODO]
+  static3d-deploy build       Build assets (hash + manifest + gltf rewrite)
+  static3d-deploy push        Deploy to Cloudflare (R2 + Pages)
+  static3d-deploy validate    Validate config, assets, and env vars
 
 Options:
-  --config <path>  Path to static3d.config.json (default: ./static3d.config.json)
+  --config <path>      Path to static3d.config.json (default: ./static3d.config.json)
+  --project <name>     Cloudflare Pages project name (default: config.project)
+  --skip-cleanup       Skip old asset cleanup after push
+  --skip-pages         Skip Pages deploy, upload to R2 only
 `);
 }
