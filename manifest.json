@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "version": "27ce126",
+  "buildTime": "2026-02-19T14:22:27.692Z",
+  "assets": {
+    "textures/normal.png": {
+      "url": "https://cdn.example.com/textures/normal.725746d7.png",
+      "size": 24,
+      "hash": "sha256:725746d730b93ef681f4a74b04ad2d0962d5299b37d5a39010602238d4e8d879",
+      "contentType": "image/png"
+    },
+    "textures/albedo.png": {
+      "url": "https://cdn.example.com/textures/albedo.8cbce19e.png",
+      "size": 17,
+      "hash": "sha256:8cbce19e9d89d5eeeea8fe2c921b575e2aaddc4d027c4e433c811ebee109c0db",
+      "contentType": "image/png"
+    },
+    "models/scene.bin": {
+      "url": "https://cdn.example.com/models/scene.c2397e08.bin",
+      "size": 17,
+      "hash": "sha256:c2397e0838f66bb72effd1d76821450aa5c9ec292e34e3f45d881027cd275156",
+      "contentType": "application/octet-stream"
+    },
+    "models/scene.gltf": {
+      "url": "https://cdn.example.com/models/scene.2073f5d5.gltf",
+      "size": 554,
+      "hash": "sha256:2073f5d59e886356f87e556e1a9182689cc33f3041da079ca2fe6ef677b62655",
+      "contentType": "model/gltf+json",
+      "dependencies": [
+        "textures/albedo.png",
+        "models/scene.bin"
+      ]
+    }
+  }
+}
