@@ -154,8 +154,15 @@ export function cdnMiddleware(opts: DevServerOptions): NextHandleFunction {
 
     const filePath = join(absDeferred, decoded);
 
-    // absDeferred の外に出ていないか再チェック
-    if (!filePath.startsWith(absDeferred + '/') && filePath !== absDeferred) {
+    // absDeferred の外に出ていないか再チェック（Windows / POSIX 両対応）
+    // join() は OS ネイティブのパス区切り文字を使うため、
+    // Windows 環境では '\' になる。比較前に '/' に正規化する。
+    const normalizedFile = filePath.replace(/\\/g, '/');
+    const normalizedBase = absDeferred.replace(/\\/g, '/');
+    if (
+      !normalizedFile.startsWith(normalizedBase + '/') &&
+      normalizedFile !== normalizedBase
+    ) {
       res.statusCode = 400;
       res.end('Bad Request');
       return;
