@@ -1,104 +1,132 @@
+/**
+ * plugin.ts — @static3d/deploy Vite プラグイン
+ *
+ * 使い方（vite.config.ts）:
+ *
+ *   import { defineConfig } from 'vite';
+ *   import { static3d } from '@static3d/deploy/vite';
+ *
+ *   export default defineConfig({
+ *     plugins: [
+ *       static3d({
+ *         config: './static3d.config.json',  // 省略時のデフォルト
+ *       }),
+ *     ],
+ *   });
+ *
+ * dev モード:
+ *   - /manifest.json → deferred/ をスキャンして dev 用 manifest を動的生成
+ *   - /cdn/*         → deferred/ のファイルをそのまま配信（ハッシュなし）
+ *   - ファイル変更を fs.watch で検知して manifest キャッシュを自動無効化
+ *
+ * build モード:
+ *   - closeBundle フックで static3d のアセットパイプラインを自動実行
+ *   - deferred assets のハッシュ計算・gltf 書き換え・manifest 生成
+ *   - dist/pages/ と dist/cdn/ に出力
+ */
+
 import type { Plugin, ViteDevServer } from 'vite';
-import { resolve, relative } from 'node:path';
-import { readFileSync, existsSync, statSync } from 'node:fs';
-import { glob } from 'glob';
-import { lookup } from 'mime-types';
+import { resolve } from 'node:path';
 import { loadConfig, validateDeployConfig } from '../config/schema.js';
 import { build } from '../build/index.js';
+import { registerDevMiddlewares } from './devServer.js';
 
-export interface Static3dDeployOptions {
-  /** Path to static3d.config.json (default: ./static3d.config.json) */
+// ────────────────────────────────────────────────────────────────────────────
+// 公開 API
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface Static3dPluginOptions {
+  /**
+   * static3d.config.json へのパス（デフォルト: './static3d.config.json'）
+   */
   config?: string;
 }
 
-export function static3dDeploy(options?: Static3dDeployOptions): Plugin {
-  let deferredDir: string;
-  let immediateDir: string;
+/**
+ * static3d Vite プラグイン。
+ *
+ * dev/build 両モードでのアセットパイプライン統合を提供する。
+ */
+export function static3d(options?: Static3dPluginOptions): Plugin {
+  let deferredDir = resolve('src/assets/deferred'); // デフォルト（フォールバック）
+  let ignorePatterns: string[] = [];
   let viteOutDir: string | undefined;
+  let isBuild = false;
 
   return {
-    name: 'static3d-deploy',
+    name: 'static3d',
 
+    // ── 設定解決フック ──────────────────────────────────────────────────────
     configResolved(resolvedConfig) {
+      isBuild = resolvedConfig.command === 'build';
       viteOutDir = resolvedConfig.build.outDir;
+
       try {
-        const config = loadConfig(options?.config);
-        const deployConfig = validateDeployConfig(config);
+        const rawConfig = loadConfig(options?.config);
+        const deployConfig = validateDeployConfig(rawConfig);
         deferredDir = resolve(deployConfig.assets.deferredDir);
-        immediateDir = resolve(deployConfig.assets.immediateDir);
+        ignorePatterns = deployConfig.assets.ignore ?? [];
       } catch {
-        // dev 時は config 不完全でもフォールバック
-        deferredDir = resolve('src/assets/deferred');
-        immediateDir = resolve('src/assets/immediate');
+        // config 不完全でも dev は動く（フォールバック値を使用）
+        // build 時は closeBundle でエラーになる
       }
     },
 
-    // 開発時: /cdn/* で deferred assets をローカル配信
+    // ── dev server ミドルウェア登録 ────────────────────────────────────────
     configureServer(server: ViteDevServer) {
-      server.middlewares.use('/cdn', (req, res, next) => {
-        if (!req.url) return next();
-        // URL デコード + パストラバーサル対策
-        const decoded = decodeURIComponent(req.url.slice(1));
-        if (decoded.includes('..')) return next();
-        const filePath = resolve(deferredDir, decoded);
-
-        if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-          return next();
-        }
-
-        const contentType = lookup(filePath) || 'application/octet-stream';
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.end(readFileSync(filePath));
+      registerDevMiddlewares(server, {
+        deferredDir,
+        ignorePatterns,
       });
 
-      // /manifest.json でローカル用簡易マニフェスト配信
-      server.middlewares.use('/manifest.json', async (_req, res) => {
-        try {
-          const files = await glob('**/*', {
-            cwd: deferredDir,
-            nodir: true,
-          });
-
-          const assets: Record<string, object> = {};
-          for (const file of files) {
-            const abs = resolve(deferredDir, file);
-            const stat = statSync(abs);
-            const key = file.replace(/\\/g, '/');
-            assets[key] = {
-              url: `/cdn/${key}`,
-              size: stat.size,
-              hash: 'dev',
-              contentType: lookup(key) || 'application/octet-stream',
-            };
-          }
-
-          const manifest = {
-            schemaVersion: 1,
-            version: 'dev',
-            buildTime: new Date().toISOString(),
-            assets,
-          };
-
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify(manifest, null, 2));
-        } catch (e) {
-          res.statusCode = 500;
-          res.end(`{"error": "${(e as Error).message}"}`);
-        }
+      // サーバー起動完了後にログを出力
+      server.httpServer?.once('listening', () => {
+        console.log(
+          '[static3d] Dev server ready — serving /manifest.json and /cdn/*'
+        );
       });
     },
 
-    // ビルド時: Vite ビルド完了後にアセットパイプライン実行
+    // ── ビルド完了フック ───────────────────────────────────────────────────
     async closeBundle() {
+      // dev モードではビルドパイプラインを実行しない
+      if (!isBuild) return;
+
       try {
-        const config = loadConfig(options?.config);
-        const deployConfig = validateDeployConfig(config);
+        const rawConfig = loadConfig(options?.config);
+        const deployConfig = validateDeployConfig(rawConfig);
         await build(deployConfig, viteOutDir);
+
+        // ログ用: 生成された manifest から asset 数を読み取る
+        let assetCount = 0;
+        try {
+          const { readFileSync } = await import('node:fs');
+          const manifestPath = resolve(
+            deployConfig.pages?.outputDir ?? 'dist/pages',
+            'manifest.json'
+          );
+          const m = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
+            assets: Record<string, unknown>;
+          };
+          assetCount = Object.keys(m.assets).length;
+        } catch {
+          // manifest 読み取り失敗は無視（ログが不完全になるだけ）
+        }
+
+        console.log(`[static3d] Build complete — ${assetCount} assets processed`);
       } catch (e) {
-        // ビルド失敗はwarningに留める（Viteビルド自体は成功させる）
-        console.warn('[static3d-deploy] Asset pipeline skipped:', (e as Error).message);
+        // ビルド失敗は warning に留める（Vite ビルド自体は成功させる）
+        this.warn(`[static3d] Asset pipeline failed: ${(e as Error).message}`);
       }
     },
   };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 後方互換エイリアス（既存コードが static3dDeploy を使っている場合）
+// ────────────────────────────────────────────────────────────────────────────
+
+/** @deprecated Use `static3d` instead */
+export const static3dDeploy = static3d;
+
+export type { Static3dPluginOptions as Static3dDeployOptions };
