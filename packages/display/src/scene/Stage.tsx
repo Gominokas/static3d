@@ -109,8 +109,27 @@ export function Stage({
     loadPeerModules().then((m) => setMods(m ?? false));
   }, []);
 
-  // peer dep ロード中または利用不可 → フォールバック
-  if (!mods) {
+  // peer dep ロード中 → children をレンダリングしない。
+  // R3F の hooks（useFrame, useThree 等）は Canvas 内部でしか使えないため、
+  // Canvas が確定するまで children を一切マウントしてはならない。
+  // （mods===null: ロード中, mods===false: peer dep 未インストール）
+  if (mods === null) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: '100%',
+          height: '100%',
+          background,
+          ...(style as React.CSSProperties),
+        }}
+      />
+    );
+  }
+
+  // peer dep 利用不可（R3F なし）→ フォールバック div に children を表示
+  // この場合 children は通常の React コンポーネントのみで、R3F hooks を含まない想定
+  if (mods === false) {
     return (
       <div
         className={className}
@@ -121,7 +140,6 @@ export function Stage({
           ...(style as React.CSSProperties),
         }}
       >
-        {/* mods===null はローディング中, false は peer dep 未インストール */}
         {children as React.ReactNode}
       </div>
     );

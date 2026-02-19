@@ -9,6 +9,18 @@
  *         transition={{ duration: 1.5, easing: 'easeInOutCubic' }}>
  *     ...
  *   </Room>
+ *
+ * ## OrbitControls との共存
+ *
+ * Room は遷移中かどうかを context 経由で公開する。
+ * OrbitControls は遷移中に自動無効化されるよう、
+ * useCameraTransition フックが enabled prop を管理する。
+ *
+ *   const { animateTo, isAnimating } = useCameraTransition(controlsRef);
+ *   <OrbitControls ref={controlsRef} enabled={!isAnimating} />
+ *
+ * Room 自身は requestAnimationFrame ループを持たない。
+ * カメラの実際の更新は useCameraTransition の useFrame が担う。
  */
 import React, {
   createContext,
@@ -27,6 +39,7 @@ import type { RoomProps, CameraState, TransitionConfig } from '@static3d/types';
 export interface RoomContextValue {
   engine: CameraEngine;
   currentCamera: CameraState;
+  isTransitioning: boolean;
   transitionTo: (target: CameraState, config?: TransitionConfig) => void;
 }
 
@@ -56,16 +69,22 @@ export function Room({
   }
 
   const [currentCamera, setCurrentCamera] = useState<CameraState>(camera);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
+  /**
+   * 遷移を開始する。
+   * 実際のカメラ更新は useCameraTransition の useFrame が担う。
+   * Room はエンジンに遷移先を伝えるだけ。
+   */
   const transitionTo = (target: CameraState, config?: TransitionConfig): void => {
     engineRef.current!.transitionTo(target, config);
     setCurrentCamera(target);
+    setIsTransitioning(true);
   };
 
   // camera props が変わったら遷移を開始
   useEffect(() => {
-    engineRef.current!.transitionTo(camera, transition);
-    setCurrentCamera(camera);
+    transitionTo(camera, transition);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     camera.position.join(','),
@@ -73,27 +92,33 @@ export function Room({
     camera.fov,
   ]);
 
-  // R3F useFrame からエンジンを動かす（r3f が利用可能な場合のみ）
-  useEffect(() => {
-    let animFrameId: number;
-    let lastTime = performance.now();
-
-    const tick = (now: number): void => {
-      const delta = (now - lastTime) / 1000;
-      lastTime = now;
-      engineRef.current!.tick(delta);
-      animFrameId = requestAnimationFrame(tick);
-    };
-
-    animFrameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animFrameId);
-  }, []);
+  /**
+   * エンジンの isTransitioning を React state に同期するポーリング。
+   * useCameraTransition が tick() を呼ぶたびに isTransitioning が変化するため、
+   * 遷移完了を検知して state を更新する（tick 完了通知のためのシンプルな実装）。
+   *
+   * NOTE: useCameraTransition が Room 内で使われる場合、
+   *       tick() の戻り値をチェックして isTransitioning state を更新できるが、
+   *       Room はフレームループを持たないため、エンジン状態を useEffect で監視する。
+   *       実際の同期は useCameraTransition の onComplete コールバックで行う。
+   */
+  const syncTransitionState = (): void => {
+    const engineState = engineRef.current?.getState();
+    if (engineState && !engineState.isTransitioning && isTransitioning) {
+      setIsTransitioning(false);
+    }
+  };
 
   const value: RoomContextValue = {
     engine: engineRef.current,
     currentCamera,
+    isTransitioning,
     transitionTo,
   };
+
+  // エンジン状態を context に反映するため、syncTransitionState を value に注入
+  // (useCameraTransition がこれを呼ぶ)
+  (value as RoomContextValue & { _sync: () => void })._sync = syncTransitionState;
 
   return (
     <RoomContext.Provider value={value}>

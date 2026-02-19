@@ -38,6 +38,12 @@ export { Overlay } from './scene/Overlay.js';
 export { CameraEngine } from './scene/engine/CameraEngine.js';
 export type { CameraEngineState } from './scene/engine/CameraEngine.js';
 
+export { useCameraTransition } from './scene/engine/useCameraTransition.js';
+export type {
+  OrbitControlsHandle,
+  CameraTransitionResult,
+} from './scene/engine/useCameraTransition.js';
+
 // ── Types (re-export from @static3d/types) ───────────────────────────────
 export type {
   LoaderOptions,
