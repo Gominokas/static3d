@@ -12,7 +12,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { AssetLoader } from '../loader/AssetLoader.js';
+import { AssetLoader } from '@static3d/loader';
 import type { LoaderOptions, ProgressEvent } from '@static3d/types';
 
 // ────────────────────────────────────────────────────────────────────────────

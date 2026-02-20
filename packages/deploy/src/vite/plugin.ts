@@ -29,6 +29,7 @@ import type { Plugin, ViteDevServer } from 'vite';
 import { resolve } from 'node:path';
 import { loadConfig, validateDeployConfig } from '../config/schema.js';
 import { build } from '../build/index.js';
+import { extractOptimizeConfig } from '../config/optimize-config.js';
 import { registerDevMiddlewares } from './devServer.js';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -95,7 +96,8 @@ export function static3d(options?: Static3dPluginOptions): Plugin {
       try {
         const rawConfig = loadConfig(options?.config);
         const deployConfig = validateDeployConfig(rawConfig);
-        await build(deployConfig, viteOutDir);
+        const optimizeConfig = extractOptimizeConfig(rawConfig as unknown as Record<string, unknown>);
+        await build(deployConfig, viteOutDir, optimizeConfig);
 
         // ログ用: 生成された manifest から asset 数を読み取る
         let assetCount = 0;
