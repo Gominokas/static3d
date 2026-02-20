@@ -19,6 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@static3d/loader": "workspace:^",
     "@static3d/types": "workspace:*"
   },
   "peerDependencies": {

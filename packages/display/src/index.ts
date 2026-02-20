@@ -9,8 +9,9 @@
  */
 
 // ── Loader ───────────────────────────────────────────────────────────────
-export { AssetLoader } from './loader/AssetLoader.js';
-export type { AssetMap } from './loader/types.js';
+// AssetLoader は @static3d/loader から re-export（フレームワーク非依存）
+export { AssetLoader } from '@static3d/loader';
+export type { AssetMap } from '@static3d/loader';
 
 // ── React hooks & Provider ───────────────────────────────────────────────
 export {

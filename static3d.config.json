@@ -9,6 +9,12 @@
     "dedup": true
   },
 
+  "environments": {
+    "draft":      { "prefix": "draft/" },
+    "staging":    { "prefix": "staging/" },
+    "production": { "prefix": "" }
+  },
+
   "deploy": {
     "pages": {
       "outputDir": "dist/pages",
