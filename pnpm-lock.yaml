@@ -6,7 +6,14 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@22.19.11)
 
   packages/deploy:
     dependencies:

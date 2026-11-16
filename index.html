@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>static3d Local Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background: #0f0f13;
+        color: #e0e0e0;
+        min-height: 100vh;
+        padding: 2rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 1.5rem;
+        letter-spacing: -0.02em;
+      }
+
+      h1 span {
+        color: #7c6af7;
+      }
+
+      #progress {
+        background: #1a1a24;
+        border: 1px solid #2a2a3a;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        font-size: 0.875rem;
+        color: #a0a0b0;
+        min-height: 2.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      #progress .bar-wrap {
+        flex: 1;
+        height: 6px;
+        background: #2a2a3a;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      #progress .bar {
+        height: 100%;
+        background: linear-gradient(90deg, #7c6af7, #4fa3e0);
+        border-radius: 3px;
+        width: 0%;
+        transition: width 0.2s ease;
+      }
+
+      #progress .label {
+        white-space: nowrap;
+        min-width: 10rem;
+        text-align: right;
+        color: #c0c0d0;
+      }
+
+      #log {
+        background: #1a1a24;
+        border: 1px solid #2a2a3a;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+        font-size: 0.8rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-all;
+        overflow-y: auto;
+        max-height: calc(100vh - 14rem);
+        color: #b0ffb0;
+      }
+
+      #log .info  { color: #80c8ff; }
+      #log .warn  { color: #ffd080; }
+      #log .error { color: #ff8080; }
+      #log .ok    { color: #80ff80; }
+      #log .dim   { color: #606070; }
+    </style>
+  </head>
+  <body>
+    <h1>static3d <span>Local Test</span></h1>
+    <div id="progress">
+      <span class="label">Initialising…</span>
+      <div class="bar-wrap"><div class="bar"></div></div>
+    </div>
+    <pre id="log"></pre>
+    <script type="module" src="/test.ts"></script>
+  </body>
+</html>

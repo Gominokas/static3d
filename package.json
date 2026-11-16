@@ -1,5 +1,14 @@
 {
   "name": "static3d",
   "private": true,
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
 }
